@@ -18,14 +18,18 @@ from __future__ import annotations
 import csv
 import datetime as dt
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urljoin
 
+import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+from fredapi import Fred
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -51,6 +55,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
 MANIFEST_PATH = RAW_DIR / "_manifest.csv"
 URL_LIST_PATH = RAW_DIR / "_statement_urls.txt"
+MACRO_CSV_PATH = PROJECT_ROOT / "data" / "macro_indicators.csv"
+
+FRED_SERIES = ("FEDFUNDS", "DGS10", "CPIAUCSL", "UNRATE")
+FRED_OBSERVATION_START = "2005-01-01"
 
 REQUEST_DELAY_SEC = 1.0
 USER_AGENT = (
@@ -239,11 +247,6 @@ def fetch_statement(
     return resp.url, body
 
 
-# --------------------------------------------------------------------------
-# Orchestration
-# --------------------------------------------------------------------------
-
-
 def write_outputs(
     ref: StatementRef, final_url: str, body: str
 ) -> dict[str, str | int]:
@@ -255,6 +258,66 @@ def write_outputs(
         "char_count": len(body),
         "scraped_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
     }
+
+
+# --------------------------------------------------------------------------
+# FRED macro indicators
+# --------------------------------------------------------------------------
+
+
+def pull_macro_indicators(meeting_dates: list[dt.date]) -> None:
+    """Pull FRED series and join as-of each FOMC meeting date.
+
+    For each meeting date, takes the most recent observation on or before the
+    meeting date per series (no interpolation, no forward-fill past the last
+    observation). Writes ``data/macro_indicators.csv`` with columns
+    ``meeting_date, FEDFUNDS, DGS10, CPIAUCSL, UNRATE``.
+    """
+    load_dotenv(PROJECT_ROOT / ".env")
+    api_key = os.getenv("FRED_API_KEY")
+    if not api_key:
+        raise RuntimeError("FRED_API_KEY not set in environment (.env)")
+
+    fred = Fred(api_key=api_key)
+
+    meetings = pd.DataFrame(
+        {"meeting_date": pd.to_datetime(sorted(set(meeting_dates)))}
+    ).sort_values("meeting_date")
+
+    out = meetings.copy()
+    for series_id in FRED_SERIES:
+        log.info("fred: pulling %s", series_id)
+        s = fred.get_series(series_id, observation_start=FRED_OBSERVATION_START)
+        series_df = (
+            s.rename(series_id)
+            .rename_axis("observation_date")
+            .reset_index()
+            .dropna(subset=[series_id])
+            .sort_values("observation_date")
+        )
+        series_df["observation_date"] = pd.to_datetime(
+            series_df["observation_date"]
+        )
+        merged = pd.merge_asof(
+            out[["meeting_date"]],
+            series_df,
+            left_on="meeting_date",
+            right_on="observation_date",
+            direction="backward",
+        )
+        out[series_id] = merged[series_id].values
+
+    out["meeting_date"] = out["meeting_date"].dt.date.astype(str)
+    MACRO_CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+    out[["meeting_date", *FRED_SERIES]].to_csv(MACRO_CSV_PATH, index=False)
+    log.info(
+        "fred: wrote %d rows to %s", len(out), MACRO_CSV_PATH
+    )
+
+
+# --------------------------------------------------------------------------
+# Orchestration
+# --------------------------------------------------------------------------
 
 
 def main() -> None:
@@ -302,6 +365,12 @@ def main() -> None:
     log.info(
         "done: %d statements written to %s", len(manifest_rows), RAW_DIR
     )
+
+    meeting_dates = [
+        dt.date.fromisoformat(str(row["meeting_date"]))
+        for row in manifest_rows
+    ]
+    pull_macro_indicators(meeting_dates)
 
 
 if __name__ == "__main__":
