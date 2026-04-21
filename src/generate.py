@@ -12,6 +12,7 @@ will surface at inference time.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import logging
 import os
@@ -30,12 +31,20 @@ Mode = Literal["baseline", "semantic_only", "bm25_only", "hybrid"]
 VALID_STANCES = {"hawkish", "neutral", "dovish"}
 MODEL_NAME = "gpt-4o-mini"
 
-SYSTEM_PROMPT = (
+SYSTEM_PROMPT_TEMPLATE = (
     "You are a macroeconomic research assistant. Your job is to classify "
     "the Federal Reserve's stance and provide historical context. "
     "Always cite the specific FOMC meeting minutes you are drawing from. "
-    "Do not provide investment advice."
+    "Do not provide investment advice.\n"
+    "Today's date is {today}. When the user asks about the Fed's current, "
+    "recent, or present stance, weight the most recent meeting dates in the "
+    "retrieved context most heavily; older meetings are historical context, "
+    "not the current stance."
 )
+
+
+def _system_prompt() -> str:
+    return SYSTEM_PROMPT_TEMPLATE.format(today=dt.date.today().isoformat())
 
 COT_INSTRUCTION = (
     "Think step by step: (1) What language signals hawkish/neutral/dovish tone? "
@@ -156,7 +165,7 @@ def _render_few_shot(example: dict) -> list[dict]:
 
 def _build_messages(query: str, retrieved: list[dict]) -> list[dict]:
     """Assemble the full message list: system, few-shots, live query."""
-    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages: list[dict] = [{"role": "system", "content": _system_prompt()}]
     for ex in FEW_SHOT_EXAMPLES:
         messages.extend(_render_few_shot(ex))
 
