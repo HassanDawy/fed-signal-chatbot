@@ -30,6 +30,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 GOLDEN_PATH = PROJECT_ROOT / "data" / "golden_test_set.csv"
 RUNS_DIR = PROJECT_ROOT / "data" / "eval_runs"
 SUMMARY_PATH = PROJECT_ROOT / "data" / "eval_summary.csv"
+RUNS_DIR_DATESNAP = PROJECT_ROOT / "data" / "eval_runs_datesnap"
+SUMMARY_PATH_DATESNAP = PROJECT_ROOT / "data" / "eval_summary_datesnap.csv"
 
 ALL_MODES: list[Mode] = list(get_args(Mode))  # keeps modes in one source of truth
 RETRIEVAL_MODES = {"semantic_only", "bm25_only", "hybrid"}
@@ -57,13 +59,13 @@ def _load_golden() -> pd.DataFrame:
     return df
 
 
-def _run_mode(df: pd.DataFrame, mode: Mode, k: int) -> pd.DataFrame:
+def _run_mode(df: pd.DataFrame, mode: Mode, k: int, datesnap: bool = False) -> pd.DataFrame:
     """Call answer() for every golden row in this mode; return a result frame."""
     rows = []
     for i, row in enumerate(df.itertuples(index=False), 1):
         query = QUERY_TEMPLATE.format(meeting_date=row.meeting_date)
         log.info("[%s] %d/%d  %s", mode, i, len(df), row.meeting_date)
-        out = answer(query, mode=mode, k=k)
+        out = answer(query, mode=mode, k=k, datesnap=datesnap)
         retrieved_dates = [r["meeting_date"] for r in out["retrieved"]]
         rows.append(
             {
@@ -156,6 +158,14 @@ def main() -> None:
     parser.add_argument(
         "--limit", type=int, default=None, help="only evaluate first N golden rows"
     )
+    parser.add_argument(
+        "--datesnap",
+        action="store_true",
+        help=(
+            "run with date-snap augmentation (writes to eval_runs_datesnap/ "
+            "+ eval_summary_datesnap.csv; original outputs untouched)"
+        ),
+    )
     args = parser.parse_args()
 
     df = _load_golden()
@@ -163,20 +173,22 @@ def main() -> None:
         df = df.head(args.limit).reset_index(drop=True)
     log.info("golden set: %d rows, stance counts: %s", len(df), Counter(df["ground_truth_stance"]))
 
-    RUNS_DIR.mkdir(parents=True, exist_ok=True)
+    runs_dir = RUNS_DIR_DATESNAP if args.datesnap else RUNS_DIR
+    summary_path = SUMMARY_PATH_DATESNAP if args.datesnap else SUMMARY_PATH
+    runs_dir.mkdir(parents=True, exist_ok=True)
     per_mode: dict[str, pd.DataFrame] = {}
     for mode in args.modes:
-        log.info("running mode=%s", mode)
-        results = _run_mode(df, mode, args.k)
-        out_path = RUNS_DIR / f"{mode}.csv"
+        log.info("running mode=%s datesnap=%s", mode, args.datesnap)
+        results = _run_mode(df, mode, args.k, datesnap=args.datesnap)
+        out_path = runs_dir / f"{mode}.csv"
         results.to_csv(out_path, index=False, quoting=csv.QUOTE_MINIMAL)
         log.info("wrote %s", out_path)
         per_mode[mode] = results
         _print_confusion(mode, _confusion(results))
 
     summary = _summarize(per_mode)
-    summary.to_csv(SUMMARY_PATH, index=False)
-    log.info("wrote %s", SUMMARY_PATH)
+    summary.to_csv(summary_path, index=False)
+    log.info("wrote %s", summary_path)
     _print_summary(summary)
 
 

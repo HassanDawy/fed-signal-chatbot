@@ -23,6 +23,7 @@ from typing import Literal
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from query_dates import augment_with_date_snap
 from retrieve import bm25_search, hybrid_search, semantic_search
 
 log = logging.getLogger("generate")
@@ -143,9 +144,22 @@ def _client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
-def _render_context(chunks: list[tuple[str, str]]) -> str:
-    """Render (date, text) pairs with the `--- Meeting: {date} ---` header."""
-    return "\n\n".join(f"--- Meeting: {d} ---\n{t}" for d, t in chunks)
+def _render_context(
+    chunks: list[tuple[str, str]], forced_dates: set[str] | None = None
+) -> str:
+    """Render (date, text) pairs with the `--- Meeting: {date} ---` header.
+
+    When ``forced_dates`` is provided, any chunk whose date is in the set is
+    annotated to tell the model it was force-included by the date-snap
+    preprocessor. With no forced_dates the output is byte-identical to the
+    pre-date-snap rendering — preserving Tier 1 ablation reproducibility.
+    """
+    forced = forced_dates or set()
+    parts = []
+    for d, t in chunks:
+        marker = " (force-included: query references this date)" if d in forced else ""
+        parts.append(f"--- Meeting: {d}{marker} ---\n{t}")
+    return "\n\n".join(parts)
 
 
 def _render_few_shot(example: dict) -> list[dict]:
@@ -163,14 +177,18 @@ def _render_few_shot(example: dict) -> list[dict]:
     ]
 
 
-def _build_messages(query: str, retrieved: list[dict]) -> list[dict]:
+def _build_messages(
+    query: str, retrieved: list[dict], forced_dates: set[str] | None = None
+) -> list[dict]:
     """Assemble the full message list: system, few-shots, live query."""
     messages: list[dict] = [{"role": "system", "content": _system_prompt()}]
     for ex in FEW_SHOT_EXAMPLES:
         messages.extend(_render_few_shot(ex))
 
     if retrieved:
-        ctx = _render_context([(r["meeting_date"], r["text"]) for r in retrieved])
+        ctx = _render_context(
+            [(r["meeting_date"], r["text"]) for r in retrieved], forced_dates
+        )
         ctx_block = f"[Retrieved context]\n{ctx}"
     else:
         ctx_block = "[Retrieved context]\n(no retrieved context — answer from general knowledge)"
@@ -225,16 +243,27 @@ def _parse_response(raw: str, retrieved_dates: set[str]) -> tuple[str, str, list
     return stance, reasoning, citations
 
 
-def answer(query: str, mode: Mode = "hybrid", k: int = 5) -> dict:
+def answer(
+    query: str, mode: Mode = "hybrid", k: int = 5, datesnap: bool = False
+) -> dict:
     """Retrieve (if applicable), prompt GPT-4o-mini, return parsed result.
 
     Returns a dict with keys: query, mode, stance, reasoning, citations,
-    raw_response, retrieved.
+    raw_response, retrieved, forced_dates.
+
+    ``datesnap`` is opt-in (default False) so existing callers and the original
+    Tier 1 ablation results in ``data/eval_summary.csv`` stay reproducible.
+    When True (and mode != "baseline") the date-snap preprocessor force-
+    includes chunks for any FOMC meetings the query references — see F5 in
+    CLAUDE.md.
     """
-    log.info("answer(mode=%s, k=%d): %s", mode, k, query)
+    log.info("answer(mode=%s, k=%d, datesnap=%s): %s", mode, k, datesnap, query)
 
     retrieved = _retrieve(query, mode, k)
-    messages = _build_messages(query, retrieved)
+    forced_dates: set[str] = set()
+    if datesnap and mode != "baseline":
+        retrieved, forced_dates = augment_with_date_snap(query, retrieved)
+    messages = _build_messages(query, retrieved, forced_dates if forced_dates else None)
 
     resp = _client().chat.completions.create(
         model=MODEL_NAME,
@@ -261,6 +290,7 @@ def answer(query: str, mode: Mode = "hybrid", k: int = 5) -> dict:
         "citations": citations,
         "raw_response": raw,
         "retrieved": retrieved,
+        "forced_dates": sorted(forced_dates),
     }
 
 
