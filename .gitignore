@@ -1,2 +1,4 @@
 /claude_files_4-5
 .env
+__pycache__/
+*.pyc
