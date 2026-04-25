@@ -80,6 +80,7 @@ def _run_mode(df: pd.DataFrame, mode: Mode, k: int) -> pd.DataFrame:
                     if retrieved_dates
                     else 0.0
                 ),
+                "hit_at_k": int(row.meeting_date in retrieved_dates),
                 "reasoning": out["reasoning"],
             }
         )
@@ -113,6 +114,9 @@ def _summarize(per_mode: dict[str, pd.DataFrame]) -> pd.DataFrame:
                 "accuracy": correct / n,
                 "correct": correct,
                 "invalid_stance_outputs": int((~sub["predicted_stance"].isin(VALID_STANCES)).sum()),
+                "hit_at_k": (
+                    float(sub["hit_at_k"].mean()) if mode in RETRIEVAL_MODES else float("nan")
+                ),
                 "mean_precision_at_k": (
                     float(sub["precision_at_k"].mean()) if mode in RETRIEVAL_MODES else float("nan")
                 ),
@@ -134,9 +138,8 @@ def _print_summary(summary: pd.DataFrame) -> None:
         print(f"\n=== summary — {era} ===")
         view = sub.drop(columns=["training_era"]).copy()
         view["accuracy"] = view["accuracy"].map(lambda x: f"{x:.3f}")
-        view["mean_precision_at_k"] = view["mean_precision_at_k"].map(
-            lambda x: "—" if pd.isna(x) else f"{x:.3f}"
-        )
+        for col in ("hit_at_k", "mean_precision_at_k"):
+            view[col] = view[col].map(lambda x: "—" if pd.isna(x) else f"{x:.3f}")
         print(view.to_string(index=False))
 
 
