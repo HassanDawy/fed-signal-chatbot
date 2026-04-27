@@ -176,7 +176,7 @@ python src/generate.py --query "Is the Fed currently hawkish?" --mode hybrid
 
 ## Reproducibility
 
-- Model: pinned snapshot `gpt-4o-mini-2024-07-18`, temperature 0, JSON mode. Slight prose variation between runs is expected (OpenAI temperature=0 is not bit-exact across separate calls), but stance labels and retrieval results are stable.
+- Model: pinned snapshot `gpt-4o-mini-2024-07-18`, temperature 0, JSON mode, `seed=42`. OpenAI's `system_fingerprint` is logged on every call and returned in `answer()`'s output; a fingerprint change means OpenAI altered backend state, in which case the seed no longer reproduces prior outputs and the eval should be re-run. Even with a stable fingerprint, the seed is best-effort — slight prose variation is possible but stance labels and retrieval results are stable.
 - Embeddings: `sentence-transformers/all-MiniLM-L6-v2`, deterministic at inference.
 - Chunk IDs: `{meeting_date}_{chunk_idx:03d}` with `collection.upsert` — re-running `index.py` is idempotent.
 - The frozen evaluation outputs in `data/eval_runs/` and `data/eval_summary.csv` are the numbers reported above.

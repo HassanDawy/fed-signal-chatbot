@@ -29,9 +29,11 @@ log = logging.getLogger("generate")
 
 Mode = Literal["baseline", "semantic_only", "bm25_only", "hybrid"]
 VALID_STANCES = {"hawkish", "neutral", "dovish"}
-# Pinned to the dated snapshot for reproducibility — the floating `gpt-4o-mini`
-# alias may be repointed by OpenAI; this snapshot will not.
+# Pinned to the dated snapshot for reproducibility.
 MODEL_NAME = "gpt-4o-mini-2024-07-18"
+# Best-effort determinism: a changed system_fingerprint on the response means
+# OpenAI altered backend state and the seed no longer reproduces prior outputs.
+SEED = 42
 
 SYSTEM_PROMPT_TEMPLATE = (
     "You are a macroeconomic research assistant. Your job is to classify "
@@ -242,9 +244,12 @@ def answer(query: str, mode: Mode = "hybrid", k: int = 5) -> dict:
         model=MODEL_NAME,
         messages=messages,
         temperature=0.0,
+        seed=SEED,
         response_format={"type": "json_object"},
     )
     raw = resp.choices[0].message.content or ""
+    fingerprint = getattr(resp, "system_fingerprint", None)
+    log.info("system_fingerprint=%s", fingerprint)
     log.debug("raw model output: %s", raw)
 
     retrieved_dates = {r["meeting_date"] for r in retrieved}
@@ -263,6 +268,7 @@ def answer(query: str, mode: Mode = "hybrid", k: int = 5) -> dict:
         "citations": citations,
         "raw_response": raw,
         "retrieved": retrieved,
+        "system_fingerprint": fingerprint,
     }
 
 
