@@ -29,7 +29,9 @@ log = logging.getLogger("generate")
 
 Mode = Literal["baseline", "semantic_only", "bm25_only", "hybrid"]
 VALID_STANCES = {"hawkish", "neutral", "dovish"}
-MODEL_NAME = "gpt-4o-mini"
+# Pinned to the dated snapshot for reproducibility — the floating `gpt-4o-mini`
+# alias may be repointed by OpenAI; this snapshot will not.
+MODEL_NAME = "gpt-4o-mini-2024-07-18"
 
 SYSTEM_PROMPT_TEMPLATE = (
     "You are a macroeconomic research assistant. Your job is to classify "

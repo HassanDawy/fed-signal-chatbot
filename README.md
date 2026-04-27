@@ -108,7 +108,7 @@ Retrieval quality (hit@5):
 | Layer | Tool |
 |---|---|
 | Language | Python 3.11+ (tested on 3.13) |
-| LLM | GPT-4o-mini via `openai` |
+| LLM | GPT-4o-mini (snapshot `gpt-4o-mini-2024-07-18`) via `openai` |
 | Embeddings | `sentence-transformers/all-MiniLM-L6-v2` (local) |
 | Vector DB | `chromadb` |
 | Lexical retrieval | `rank-bm25` |
@@ -176,7 +176,7 @@ python src/generate.py --query "Is the Fed currently hawkish?" --mode hybrid
 
 ## Reproducibility
 
-- Model: `gpt-4o-mini`, temperature 0, JSON mode. Slight prose variation between runs is expected (OpenAI temperature=0 is not bit-exact across separate calls), but stance labels and retrieval results are stable.
+- Model: pinned snapshot `gpt-4o-mini-2024-07-18`, temperature 0, JSON mode. Slight prose variation between runs is expected (OpenAI temperature=0 is not bit-exact across separate calls), but stance labels and retrieval results are stable.
 - Embeddings: `sentence-transformers/all-MiniLM-L6-v2`, deterministic at inference.
 - Chunk IDs: `{meeting_date}_{chunk_idx:03d}` with `collection.upsert` — re-running `index.py` is idempotent.
 - The frozen evaluation outputs in `data/eval_runs/` and `data/eval_summary.csv` are the numbers reported above.
