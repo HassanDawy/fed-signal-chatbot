@@ -35,7 +35,7 @@ from index import (
 log = logging.getLogger("retrieve")
 
 DEFAULT_TOP_K = 5
-RRF_K = 60  # standard; see CLAUDE.md
+RRF_K = 60  # standard
 
 
 @lru_cache(maxsize=1)
@@ -117,6 +117,8 @@ def hybrid_search(
     sem = semantic_search(query, k=pool)
     lex = bm25_search(query, k=pool)
 
+    # RRF: each leg contributes 1/(k+rank). A doc that shows up in both legs
+    # gets both contributions added, so cross-leg agreement boosts its rank.
     fused: dict[str, dict] = {}
     for rank, r in enumerate(sem):
         fused[r["id"]] = {**r, "score": 1.0 / (rrf_k + rank + 1)}

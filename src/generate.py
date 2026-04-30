@@ -34,6 +34,8 @@ MODEL_NAME = "gpt-4o-mini-2024-07-18"
 # Best-effort determinism: a changed system_fingerprint on the response means
 # OpenAI altered backend state and the seed no longer reproduces prior outputs.
 SEED = 42
+# Top-5 chosen empirically: most statements chunk into 2-5 pieces, so k=5
+# gives the right meeting room to surface without drowning the prompt.
 
 SYSTEM_PROMPT_TEMPLATE = (
     "You are a macroeconomic research assistant. Your job is to classify "
@@ -177,7 +179,9 @@ def _build_messages(query: str, retrieved: list[dict]) -> list[dict]:
         ctx = _render_context([(r["meeting_date"], r["text"]) for r in retrieved])
         ctx_block = f"[Retrieved context]\n{ctx}"
     else:
-        ctx_block = "[Retrieved context]\n(no retrieved context — answer from general knowledge)"
+        # baseline mode: tell the model explicitly there's nothing retrieved so it
+        # falls back on priors instead of hallucinating a citation.
+        ctx_block = "[Retrieved context]\n(no retrieved context, answer from general knowledge)"
 
     user = (
         f"{ctx_block}\n\n"
@@ -240,6 +244,8 @@ def answer(query: str, mode: Mode = "hybrid", k: int = 5) -> dict:
     retrieved = _retrieve(query, mode, k)
     messages = _build_messages(query, retrieved)
 
+    # JSON mode + seed + temperature=0 are the three knobs that get us as
+    # close to deterministic as the OpenAI API allows.
     resp = _client().chat.completions.create(
         model=MODEL_NAME,
         messages=messages,

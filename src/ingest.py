@@ -60,6 +60,7 @@ MACRO_CSV_PATH = PROJECT_ROOT / "data" / "macro_indicators.csv"
 FRED_SERIES = ("FEDFUNDS", "DGS10", "CPIAUCSL", "UNRATE")
 FRED_OBSERVATION_START = "2005-01-01"
 
+# Polite delay between requests so we don't hammer the Fed's site.
 REQUEST_DELAY_SEC = 1.0
 USER_AGENT = (
     "fed-signal-chatbot/0.1 (DS593 academic project; "

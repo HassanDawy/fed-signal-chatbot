@@ -180,6 +180,8 @@ def build_index() -> tuple[int, dict[str, int]]:
             for i in range(len(chunks))
         ]
 
+        # normalize_embeddings=True so cosine similarity reduces to a dot
+        # product downstream; matches the cosine space configured on Chroma.
         embeddings = model.encode(
             chunks,
             batch_size=EMBED_BATCH_SIZE,

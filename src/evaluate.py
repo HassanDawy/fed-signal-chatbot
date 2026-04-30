@@ -61,6 +61,8 @@ def _run_mode(df: pd.DataFrame, mode: Mode, k: int) -> pd.DataFrame:
     """Call answer() for every golden row in this mode; return a result frame."""
     rows = []
     for i, row in enumerate(df.itertuples(index=False), 1):
+        # Same query template across all rows so retrieval is the only thing
+        # that varies between meetings. Date is the only content-bearing token.
         query = QUERY_TEMPLATE.format(meeting_date=row.meeting_date)
         log.info("[%s] %d/%d  %s", mode, i, len(df), row.meeting_date)
         out = answer(query, mode=mode, k=k)
