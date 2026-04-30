@@ -4,7 +4,7 @@ A retrieval-augmented system that classifies the Federal Reserve's monetary poli
 
 DS593 Applied LLMs · Solo Project · Spring 2026
 
-> The full project write-up (motivation, design decisions, evaluation methodology, results, and reflection) lives in this repo as a separate document. The README only covers what you need to clone, set up, and reproduce the work.
+> The full project write-up (motivation, design decisions, evaluation methodology, results, and reflection) lives in this repo as [`write-up.pdf`](write-up.pdf). The README only covers what you need to clone, set up, and reproduce the work.
 
 ---
 
@@ -14,7 +14,7 @@ The system ingests 175 FOMC statements (2006 to present) from `federalreserve.go
 
 Headline finding: on date-targeted queries, BM25 alone beats hybrid (RRF) retrieval, because dense embeddings have no representation of meeting dates and pull in topically similar but wrong meetings during fusion. The post-cutoff baseline accuracy collapses to 0% (the model refuses to answer about meetings it hasn't memorized), which is the cleanest evidence that retrieval is doing real work for post-cutoff questions.
 
-See the project write-up in this repo for the full evaluation tables, error analysis, and discussion.
+See [`write-up.pdf`](write-up.pdf) for the full evaluation tables, error analysis, and discussion.
 
 ---
 
@@ -23,6 +23,7 @@ See the project write-up in this repo for the full evaluation tables, error anal
 ```
 fed-signal-chatbot/
 ├── README.md
+├── write-up.pdf                  # full project write-up (methodology, results, reflection)
 ├── requirements.txt
 ├── .gitignore
 ├── .env                          # not committed; you create this locally
