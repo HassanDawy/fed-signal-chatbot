@@ -1,0 +1,5 @@
+Mode,Pre-cutoff Acc,Pre-cutoff Hit@5,Post-cutoff Acc,Post-cutoff Hit@5,Overall Acc,Overall Hit@5
+Baseline (no retrieval),0.731,n/a,0.000,n/a,0.500,n/a
+Semantic-only,0.077,0.000,0.583,0.000,0.237,0.000
+BM25-only,0.731,1.000,0.917,0.917,0.789,0.974
+Hybrid (RRF),0.692,0.769,0.750,0.750,0.711,0.763
