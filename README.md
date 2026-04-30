@@ -147,7 +147,7 @@ This calls GPT-4o-mini 152 times (38 golden rows × 4 modes) and prints a per-mo
 ## Data Access
 
 - **FOMC statements** are scraped from the public Fed website at <https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm>. The scraper uses a 1-second polite delay and a descriptive User-Agent. All 175 raw text files plus a `_manifest.csv` (URL, char count, scrape timestamp) are committed under `data/raw/`.
-- **Macro indicators** (FEDFUNDS, DGS10, CPIAUCSL, UNRATE) come from the FRED API via `fredapi`. The joined CSV (one row per FOMC meeting date, as-of joined) lives at `data/fred/macro_indicators.csv` and is committed. Note: the FRED indicators were pulled for completeness but are not used in the current pipeline; they're available for follow-up work.
+- **Macro indicators** (FEDFUNDS, DGS10, CPIAUCSL, UNRATE) come from the FRED API via `fredapi`. The joined CSV (one row per FOMC meeting date, as-of joined) lives at `data/fred/macro_indicators.csv` and is committed. **Note:** the FRED indicators were pulled for completeness but are not used in the current pipeline; they're available for follow-up work.
 - **Golden test set** is hand-labeled and lives at `data/golden_test_set.csv` (38 meetings split into pre-cutoff and post-cutoff eras). The 3 few-shot meetings used in the prompt are deliberately excluded from this set to prevent leakage.
 
 You do not need network access to reproduce the evaluation, only an OpenAI key.
